@@ -1,1 +1,145 @@
+<html>
+<body>
+    <div id="container">
+        <canvas id="myChart"></canvas>
+    </div>
+    <style>
+        #container {
+            /* width: 100%; */
+            height: 100%;
+        }
+    </style>
 
+    <script src='chart.bundle.min.js'></script>
+    <script src='spectra.js'></script>
+
+    <script>
+
+
+        const chartdata = {
+            datasets: [
+                band_pass_filter(595, 635, {label: 'APD1'}),
+                band_pass_filter(665, 705, {label: 'APD2'}),
+                laserAt(640, {label: 640}),
+                laserAt(561, {label: 561}),
+                laserAt(740, {label: 'STED'}),
+                // ...spectrum('Tetraspec Blue', known_spectra.tetraspec_blue, 
+                //             {label: 'Tetraspec Blue', color: 'RGB(26,115,232,{a})'}),
+                // ...spectrum('Tetraspec Orange', known_spectra.tetraspec_orange, 
+                //             {label: 'Tetraspec Orange', color: 'RGB(244,128,36,{a})'}),
+                ...spectrum('GFP', known_spectra.gfp,
+                            {color: 'RGB(82,128,0,{a})'})
+            ]
+        }
+
+        const ctx = document.getElementById('myChart').getContext('2d');
+        
+        const myChart = new Chart(ctx, {
+            type: 'line',
+            data: chartdata,
+            options: {
+                scales: {
+                    xAxes: [{
+                        type: 'linear',
+                    }]
+                }
+            }
+
+        });
+
+        function ziplist(a, b) {
+            list = []
+            for (let i = 0; i < a.length; i++) {
+                list.push([a[i], b[i]])
+            }
+            return list
+        }
+
+        function hslToRgb(h, s, l){
+            var r, g, b;
+
+            if(s == 0){
+                r = g = b = l; // achromatic
+            }else{
+                var hue2rgb = function hue2rgb(p, q, t){
+                    if(t < 0) t += 1;
+                    if(t > 1) t -= 1;
+                    if(t < 1/6) return p + (q - p) * 6 * t;
+                    if(t < 1/2) return q;
+                    if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                }
+
+                var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                var p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1/3)/255;
+                g = hue2rgb(p, q, h)/255;
+                b = hue2rgb(p, q, h - 1/3)/255;
+            }
+
+            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+        }
+
+        function band_pass_filter(min, max, options) {
+            return {
+                ...options,
+                data: [{x:min,y:0},{x:min,y:1},{x:max,y:1},{x:max,y:0}],
+                lineTension: 0
+            }
+        }
+
+        function laserAt(wavelength, options) {
+            const lineColor = 'RGB(211,45,39,0.5)'
+            return {
+                ...options,
+                data: [{x:wavelength, y:0}, {x:wavelength, y:0.95}],//, {x:wavelength, y:0}],
+                borderDash: [5, 5],
+                borderColor: lineColor,
+                // pointBackgroundColor: 'RGB(244,128,36)',
+                backgroundColor: lineColor
+            }
+        }
+
+        function spectrum(label, csv, options) {
+            const emission_color = options.color.replace('{a}', 0.2)
+            const excitation_color = options.color.replace('{a}', 0.1)
+            var xs = []
+            var ex = []
+            var em = []
+
+            for (var line of csv.split('\n')) {
+                var [x, b, c] = line.split(',')
+                xs.push(parseFloat(x))
+                ex.push(parseFloat(b))
+                em.push(parseFloat(c))
+            }
+
+            em = em.map(x => x || 0)
+            ex = ex.map(x => x || 0)
+
+            return [
+                {
+                    ...options,
+                    label: label + ' (emission)',
+                    data: ziplist(xs, em).map(([x, y]) => ({x, y})),
+                    pointRadius: 0,
+                    backgroundColor: emission_color,
+                    borderColor: emission_color
+                },
+                {
+                    
+                    ...options,
+                    label: label + ' (excitation)',
+                    data: ziplist(xs, ex).map(([x, y]) => ({x, y})),
+                    pointRadius: 0,
+                    backgroundColor: excitation_color,
+                    borderColor: excitation_color,
+                    borderDash: [5,5]
+                }
+            ]
+        }
+
+    
+    </script>
+</body>
+</html>
